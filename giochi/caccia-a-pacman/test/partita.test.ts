@@ -34,9 +34,14 @@ describe('partita', () => {
   });
 
   it('i fantasmi del computer escono dalla casa', () => {
+    // Una cattura riporta tutti in casa: si verifica che ognuno esca almeno una volta.
     const p = new Partita({ difficolta: 'normale', umano: 0, seme: 3 });
-    avanza(p, 9);
-    expect(p.fantasmi.filter((f) => f.stato === 'caccia').length).toBeGreaterThanOrEqual(3);
+    const usciti = new Set<number>();
+    for (let t = 0; t < 20; t += passo) {
+      p.aggiorna(passo);
+      p.fantasmi.forEach((f) => { if (f.stato === 'caccia') usciti.add(f.id); });
+    }
+    expect(usciti.size).toBe(4);
   });
 
   it('il potere ha una ricarica', () => {
