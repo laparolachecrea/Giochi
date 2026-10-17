@@ -64,19 +64,34 @@ La **nebbia di guerra** è la leva che propongo di più: rende giocabile anche l
 in solitario (Pac-Man non è sempre visibile, quindi il bot non può prevederlo facilmente)
 e premia la comunicazione ("è passato da me, va verso destra!").
 
-## 6. Poteri dei fantasmi (proposta, ❓ fase 2)
+## 6. Poteri dei fantasmi
 
 Ogni fantasma richiama la "personalità" che aveva nell'originale e ha un potere con
-tempo di ricarica:
+tempo di ricarica. I poteri sono volutamente moderati: aiutano, non risolvono la partita.
 
-| Fantasma | Personalità originale | Potere proposto |
-|---|---|---|
-| Blinky (rosso) | Insegue direttamente | **Scatto**: velocità doppia per 2 secondi |
-| Pinky (rosa) | Punta davanti a Pac-Man | **Fiuto**: vede la direzione di Pac-Man per 3 secondi |
-| Inky (azzurro) | Imprevedibile | **Muro**: chiude un corridoio per 4 secondi |
-| Clyde (arancione) | Va e viene | **Radar**: rivela Pac-Man a tutta la squadra per un istante |
+| Fantasma | Personalità originale | Potere | Effetto | Ricarica |
+|---|---|---|---|---|
+| Blinky (rosso) | Insegue direttamente | **Scatto** | Velocità ×1,35 per 1,5 s | 12 s |
+| Pinky (rosa) | Punta davanti a Pac-Man | **Fiuto** | Una freccia indica Pac-Man per 3 s | 14 s |
+| Inky (azzurro) | Imprevedibile | **Muro** | Chiude per 3 s il corridoio alle spalle | 14 s |
+| Clyde (arancione) | Va e viene | **Radar** | Rivela Pac-Man a tutta la squadra per 1 s | 18 s |
 
-I poteri creano ruoli complementari: la squadra funziona meglio se li usa in sequenza.
+**Energia dei poteri** (proposta del 17 ottobre). Ogni superpillola mangiata da Pac-Man
+toglie un livello di energia alla squadra (4 livelli): ricarica più lenta del 15% e
+durata più breve del 10% per ogni livello perso. Ogni cattura restituisce un livello.
+Il recupero con le catture evita il circolo vizioso in cui chi sta perdendo si indebolisce
+e perde ancora più facilmente: la partita resta sempre recuperabile.
+
+## 6 bis. I compagni controllati dal computer
+
+Nella versione per un giocatore il protagonista sei tu. I tre compagni sono **battitori**,
+come in una battuta di caccia:
+
+- sono più lenti del giocatore (90% della velocità);
+- quando vedono Pac-Man non lo inseguono: si piazzano oltre lui, dalla parte opposta
+  rispetto al giocatore, e lo spingono verso di te;
+- non usano lo Scatto (ruberebbe la cattura) e ricaricano gli altri poteri più lentamente
+  (×1,5). Il loro Radar rivela Pac-Man anche a te.
 
 ## 7. Multigiocatore online
 
@@ -156,16 +171,20 @@ La diagnosi ha mostrato due cause:
 2. **Pac-Man deve essere più veloce dei fantasmi** (come nell'originale). Così non lo si
    prende inseguendolo, ma solo accerchiandolo: la meccanica premia la collaborazione.
 
-Valori attuali (velocità di Pac-Man rispetto ai fantasmi: +12%, +18%, +24%):
+Seconda taratura, dopo aver reso i compagni dei battitori. La simulazione mette al posto
+del giocatore un "giocatore virtuale" (a turno in ognuno dei quattro fantasmi) e misura
+anche la sua quota di catture: in una squadra di quattro, la quota "neutra" sarebbe il 25%.
 
-| Difficoltà | Fantasmi vincono | Durata media | Puntini rimasti |
-|---|---|---|---|
-| Facile | 96% | 62 s | 24 |
-| Normale | 63% | 82 s | 8 |
-| Difficile | 40% | 89 s | 4 |
+| Difficoltà | Velocità di Pac-Man (fantasma = 5,0) | La squadra vince | Durata media | Catture del giocatore |
+|---|---|---|---|---|
+| Facile | 5,0 | 93% | 83 s | 41% |
+| Normale | 5,3 | 60% | 100 s | 54% |
+| Difficile | 5,4 (vede tutto, non sbaglia) | 44% | 114 s | 49% |
 
-Da osservare nelle prove con persone vere: il limite di 3 minuti oggi non scatta quasi mai,
-perché le partite finiscono prima (cattura o puntini finiti).
+Limite di questi numeri: il giocatore virtuale ha riflessi perfetti e nessuna strategia.
+Sono un punto di partenza da correggere con le prove reali.
+
+Il limite di 3 minuti ora decide il 4–9% delle partite a Normale e Difficile.
 
 ## 13. Scelte di progetto emerse durante lo sviluppo
 

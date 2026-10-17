@@ -48,13 +48,28 @@ describe('partita', () => {
     const p = new Partita({ difficolta: 'normale', umano: 3, seme: 4 });
     avanza(p, 2.1);
     p.aggiorna(passo, -1, true);
-    expect(p.fantasmi[3].ricarica).toBeGreaterThan(14);
+    expect(p.fantasmi[3].ricarica).toBeGreaterThan(17);
     expect(p.pacVisibile).toBe(true);
+  });
+
+  it('ogni superpillola indebolisce i poteri, ogni cattura li ricarica', () => {
+    const p = new Partita({ difficolta: 'normale', umano: 0, seme: 5 });
+    let minimo = p.energia;
+    for (let t = 0; t < 200 && p.fase !== 'fine'; t += passo) {
+      p.aggiorna(passo);
+      for (const e of p.eventi) {
+        if (e.tipo === 'superpillola' && e.energiaPersa) expect(p.energia).toBeLessThan(4);
+        if (e.tipo === 'cattura' && e.energiaRecuperata) expect(p.energia).toBeGreaterThan(minimo);
+      }
+      minimo = Math.min(minimo, p.energia);
+    }
+    expect(p.energia).toBeGreaterThanOrEqual(0);
+    expect(p.energia).toBeLessThanOrEqual(4);
   });
 
   it.each(['facile', 'normale', 'difficile'] as const)('una partita intera (%s) arriva sempre a una conclusione', (difficolta) => {
     for (let seme = 0; seme < 5; seme++) {
-      const p = new Partita({ difficolta, umano: null, seme });
+      const p = new Partita({ difficolta, umano: seme % 4, autopilota: true, seme });
       avanza(p, 200);
       expect(p.fase).toBe('fine');
       expect(p.esito).not.toBeNull();

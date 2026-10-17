@@ -34,6 +34,8 @@ export interface Fantasma extends Mobile {
   spaventato: boolean;
   /** Secondi prima di poter riusare il potere. */
   ricarica: number;
+  /** Durata dell'ultima ricarica (dipende dall'energia), per disegnarne l'avanzamento. */
+  ricaricaTotale: number;
   /** Secondi di effetto del potere ancora attivi. */
   attivo: number;
   precedente: Casella | null;
@@ -47,8 +49,8 @@ export interface Fantasma extends Mobile {
 
 export type Evento =
   | { tipo: 'puntino'; x: number; y: number }
-  | { tipo: 'superpillola'; x: number; y: number }
-  | { tipo: 'cattura'; id: number }
+  | { tipo: 'superpillola'; x: number; y: number; energiaPersa: boolean }
+  | { tipo: 'cattura'; id: number; energiaRecuperata: boolean }
   | { tipo: 'mangiato'; id: number }
   | { tipo: 'potere'; id: number }
   | { tipo: 'potereNegato'; id: number }
@@ -66,6 +68,8 @@ export interface OpzioniPartita {
   difficolta: LivelloDifficolta;
   /** Indice del fantasma controllato dal giocatore; null = tutti controllati dal computer. */
   umano: number | null;
+  /** Il posto del giocatore è guidato dal computer (per collaudi e bilanciamento). */
+  autopilota?: boolean;
   seme?: number;
 }
 
@@ -88,6 +92,7 @@ export class Partita {
   readonly pacman: PacMan;
   readonly fantasmi: Fantasma[];
   readonly umano: number | null;
+  readonly autopilota: boolean;
 
   fase: Fase = 'pronti';
   timerFase = REGOLE.durataPronti;
@@ -95,6 +100,8 @@ export class Partita {
   vite = REGOLE.vitePacman;
   spavento = 0;
   rivelato = 0;
+  /** Energia dei poteri della squadra (vedi REGOLE.energiaMassima). */
+  energia = REGOLE.energiaMassima;
   esito: Esito | null = null;
   eventi: Evento[] = [];
   /** Puntini e superpillole ancora presenti (indici di casella). */
@@ -105,12 +112,13 @@ export class Partita {
   readonly visibili: Uint8Array;
   pacVisibile = false;
   ultimaPosizione: { x: number; y: number; dir: Direzione; eta: number } | null = null;
-  readonly statistiche = { catture: 0, fantasmiMangiati: 0, superpillole: 0 };
+  readonly statistiche = { catture: 0, fantasmiMangiati: 0, superpillole: 0, catturePerFantasma: [0, 0, 0, 0] };
 
   constructor(opzioni: OpzioniPartita) {
     this.diff = DIFFICOLTA[opzioni.difficolta];
     this.rng = mulberry32(opzioni.seme ?? Math.floor(Math.random() * 2 ** 31));
     this.umano = opzioni.umano;
+    this.autopilota = opzioni.autopilota ?? false;
     const n = this.lab.larghezza * this.lab.altezza;
     this.conosciuti = new Uint8Array(n);
     this.visibili = new Uint8Array(n);
@@ -118,7 +126,7 @@ export class Partita {
     for (const i of this.lab.superpillole) { this.rimasti.add(i); this.conosciuti[i] = 2; }
     this.pacman = { t: { ...this.lab.partenzaPacman }, dir: -1, prog: 0, deciso: false, obiettivo: null };
     this.fantasmi = FANTASMI.map((_, id) => ({
-      id, umano: id === opzioni.umano, stato: 'casa', timer: 0, spaventato: false, ricarica: 0, attivo: 0,
+      id, umano: id === opzioni.umano, stato: 'casa', timer: 0, spaventato: false, ricarica: 0, ricaricaTotale: 1, attivo: 0,
       precedente: null, richiesta: -1, pattuglia: null, px: 0, py: 0, tappa: 0,
       t: { x: 0, y: 0 }, dir: -1, prog: 0, deciso: false,
     }));
@@ -163,7 +171,7 @@ export class Partita {
     for (const f of this.fantasmi) {
       f.ricarica = Math.max(0, f.ricarica - dt);
       f.attivo = Math.max(0, f.attivo - dt);
-      const vuole = f.umano ? azione : vuoleUsarePotere(this, f);
+      const vuole = f.umano && !this.autopilota ? azione : vuoleUsarePotere(this, f);
       if (vuole) this.usaPotere(f);
     }
 
@@ -244,15 +252,16 @@ export class Partita {
       return;
     }
 
-    let velocita = REGOLE.velocitaFantasma;
+    let velocita = REGOLE.velocitaFantasma * (f.umano ? 1 : REGOLE.fattoreCompagni);
     if (f.spaventato) velocita *= REGOLE.fattoreSpavento;
     if (f.id === 0 && f.attivo > 0) velocita *= REGOLE.fattoreScatto;
     const c = this.casellaDi(f);
     if (c.y === 9 && (c.x <= 3 || c.x >= this.lab.larghezza - 4)) velocita *= REGOLE.fattoreTunnel;
 
-    if (f.umano && f.richiesta >= 0 && f.richiesta === opposta(f.dir) && f.prog > 0) this.inverti(f);
+    const manuale = f.umano && !this.autopilota;
+    if (manuale && f.richiesta >= 0 && f.richiesta === opposta(f.dir) && f.prog > 0) this.inverti(f);
     this.muovi(f, velocita * dt, () => {
-      f.dir = f.umano ? this.direzioneUmano(f) : decidiFantasma(this, f);
+      f.dir = manuale ? this.direzioneUmano(f) : decidiFantasma(this, f);
     });
   }
 
@@ -284,13 +293,15 @@ export class Partita {
     if (this.lab.superpillole.includes(i)) {
       this.statistiche.superpillole++;
       this.spavento = REGOLE.durataSpavento;
+      const energiaPersa = this.energia > 0;
+      this.energia = Math.max(0, this.energia - 1);
       this.rivelato = Math.max(this.rivelato, REGOLE.rivelaSuperpillola);
       for (const f of this.fantasmi) {
         if (f.stato !== 'caccia') continue;
         f.spaventato = true;
         if (!f.umano) this.inverti(f);
       }
-      this.eventi.push({ tipo: 'superpillola', x: c.x, y: c.y });
+      this.eventi.push({ tipo: 'superpillola', x: c.x, y: c.y, energiaPersa });
     } else {
       this.eventi.push({ tipo: 'puntino', x: c.x, y: c.y });
     }
@@ -313,8 +324,11 @@ export class Partita {
         this.eventi.push({ tipo: 'mangiato', id: f.id });
       } else {
         this.statistiche.catture++;
+        this.statistiche.catturePerFantasma[f.id]++;
         this.vite--;
-        this.eventi.push({ tipo: 'cattura', id: f.id });
+        const energiaRecuperata = this.energia < REGOLE.energiaMassima;
+        this.energia = Math.min(REGOLE.energiaMassima, this.energia + 1);
+        this.eventi.push({ tipo: 'cattura', id: f.id, energiaRecuperata });
         if (this.vite <= 0) return this.termina('fantasmi', 'catture');
         this.fase = 'presa';
         this.timerFase = REGOLE.durataPresa;
@@ -333,9 +347,11 @@ export class Partita {
       return;
     }
     const def = FANTASMI[f.id];
-    f.ricarica = def.ricarica;
-    f.attivo = def.durata;
-    if (f.id === 3) this.rivelato = Math.max(this.rivelato, def.durata);
+    const perso = REGOLE.energiaMassima - this.energia;
+    f.ricarica = def.ricarica * (f.umano ? 1 : REGOLE.ricaricaCompagni) * (1 + REGOLE.penalitaRicarica * perso);
+    f.ricaricaTotale = f.ricarica;
+    f.attivo = def.durata * (1 - REGOLE.penalitaDurata * perso);
+    if (f.id === 3) this.rivelato = Math.max(this.rivelato, f.attivo);
     this.eventi.push({ tipo: 'potere', id: f.id });
   }
 
@@ -346,7 +362,7 @@ export class Partita {
     const i = this.lab.indice(dietro.x, dietro.y);
     const tutti: Mobile[] = [this.pacman, ...this.fantasmi.filter((g) => g.stato === 'caccia')];
     if (tutti.some((m) => { const c = this.casellaDi(m); return this.lab.indice(c.x, c.y) === i; })) return false;
-    this.lab.muriTemporanei.set(i, FANTASMI[2].durata);
+    this.lab.muriTemporanei.set(i, FANTASMI[2].durata * (1 - REGOLE.penalitaDurata * (REGOLE.energiaMassima - this.energia)));
     // Chi stava entrando in quella casella torna indietro.
     for (const m of tutti) {
       if (m.prog > 0 && m.dir >= 0) {

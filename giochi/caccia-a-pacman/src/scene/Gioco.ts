@@ -71,8 +71,8 @@ export class Gioco extends Phaser.Scene {
       this.puntini.set(i, this.add.image(c.x, c.y, pillola ? 'pillola' : 'puntino').setScale(0.5).setDepth(1));
     }
     this.gPuntini = this.add.graphics().setDepth(1);
-    this.gPacman = this.add.graphics().setDepth(2);
-    this.gNebbia = this.add.graphics().setDepth(3);
+    this.gNebbia = this.add.graphics().setDepth(2);
+    this.gPacman = this.add.graphics().setDepth(3);
     this.gEffetti = this.add.graphics().setDepth(4);
     this.gFantasmi = this.add.graphics().setDepth(5);
     this.gHud = this.add.graphics().setDepth(10);
@@ -142,7 +142,7 @@ export class Gioco extends Phaser.Scene {
         suoni.superpillola();
         this.scoppio(pixel(e.x, e.y), COLORI.pillola, 30);
         this.cameras.main.flash(250, 40, 60, 255);
-        this.mostraMessaggio('SUPERPILLOLA!\n\nSCAPPA!', 0x6f8bff, 1600);
+        this.mostraMessaggio(e.energiaPersa ? 'SUPERPILLOLA!\n\nSCAPPA!\n\nPOTERI INDEBOLITI' : 'SUPERPILLOLA!\n\nSCAPPA!', 0x6f8bff, 1800);
         break;
       case 'cattura': {
         suoni.cattura();
@@ -153,7 +153,7 @@ export class Gioco extends Phaser.Scene {
         this.cameras.main.flash(200, 255, 230, 120);
         if (p.vite > 0) {
           const chi = e.id === this.scelte.fantasma ? 'L\'HAI PRESO!' : `PRESO DA ${FANTASMI[e.id].nome.toUpperCase()}!`;
-          this.mostraMessaggio(`${chi}\n\nANCORA ${p.vite}`, FANTASMI[e.id].colore, 1800);
+          this.mostraMessaggio(`${chi}\n\nANCORA ${p.vite}${e.energiaRecuperata ? '\n\nPOTERI +1' : ''}`, FANTASMI[e.id].colore, 1800);
         }
         break;
       }
@@ -345,7 +345,7 @@ export class Gioco extends Phaser.Scene {
       this.tweens.add({ targets: guida, alpha: 0.2, duration: 1400, yoyo: true, repeat: -1 });
     }
     this.testoTu = testo(this, 0, 0, 'TU', 8, 0xffffff).setDepth(12);
-    this.testoDubbio = testo(this, 0, 0, '?', 12, COLORI.pacman).setDepth(2).setVisible(false);
+    this.testoDubbio = testo(this, 0, 0, '?', 12, COLORI.pacman).setDepth(3).setVisible(false);
   }
 
   private disegnaHud(): void {
@@ -388,7 +388,7 @@ export class Gioco extends Phaser.Scene {
     g.fillStyle(def.colore, pronto ? 0.9 : 0.25);
     g.fillCircle(cx, cy, r);
     if (f.ricarica > 0) {
-      const k = f.ricarica / def.ricarica;
+      const k = Math.min(1, f.ricarica / f.ricaricaTotale);
       g.fillStyle(0x000000, 0.55);
       g.slice(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2, false);
       g.fillPath();
@@ -402,6 +402,14 @@ export class Gioco extends Phaser.Scene {
         : tocco ? 'TOCCA IL CERCHIO' : 'PREMI SPAZIO',
     );
     this.testoPotere.setAlpha(pronto ? 1 : 0.6);
+
+    // Energia dei poteri: 4 tacche, si perdono con le superpillole, si recuperano catturando.
+    for (let i = 0; i < REGOLE.energiaMassima; i++) {
+      const piena = i < p.energia;
+      const x = 112 + this.testoPotere.width + 14 + i * 14;
+      g.fillStyle(piena ? def.colore : 0xffffff, piena ? 0.95 : 0.12);
+      g.fillRoundedRect(x, Y_BARRA - 18, 10, 12, 2);
+    }
   }
 
   // ————————————————————————————— pausa e fine —————————————————————————————
@@ -427,7 +435,7 @@ export class Gioco extends Phaser.Scene {
     musica.ferma();
     (vinto ? suoni.vittoria : suoni.sconfitta)();
     this.time.delayedCall(900, () => {
-      const c = this.pannello(400);
+      const c = this.pannello(430);
       const motivo = vinto ? 'La squadra ha preso Pac-Man 3 volte.'
         : p.esito?.motivo === 'puntini' ? 'Pac-Man ha mangiato tutti i puntini.' : 'Il tempo è scaduto.';
       c.add(testoNeon(this, LARGHEZZA / 2, ALTEZZA / 2 - 140, vinto ? 'VITTORIA!' : 'È SCAPPATO!', 28, vinto ? 0x7dff9a : 0xff3b5c));
@@ -435,7 +443,8 @@ export class Gioco extends Phaser.Scene {
       const mangiati = p.puntiniTotali - p.rimasti.size;
       const usato = Math.round(REGOLE.durataPartita - p.tempo);
       const righe = [
-        ['Catture', `${p.statistiche.catture} / ${REGOLE.vitePacman}`],
+        ['Catture della squadra', `${p.statistiche.catture} / ${REGOLE.vitePacman}`],
+        ['Le tue catture', `${p.statistiche.catturePerFantasma[this.scelte.fantasma]}`],
         ['Puntini mangiati da Pac-Man', `${mangiati} / ${p.puntiniTotali}`],
         ['Fantasmi mangiati', `${p.statistiche.fantasmiMangiati}`],
         ['Durata', `${Math.floor(usato / 60)}:${String(usato % 60).padStart(2, '0')}`],
@@ -444,11 +453,11 @@ export class Gioco extends Phaser.Scene {
         c.add(testo(this, 120, ALTEZZA / 2 - 40 + i * 28, etichetta, 8, COLORI.testoTenue).setOrigin(0, 0.5));
         c.add(testo(this, LARGHEZZA - 120, ALTEZZA / 2 - 40 + i * 28, valore, 10, COLORI.testo).setOrigin(1, 0.5));
       });
-      c.add(pulsante(this, LARGHEZZA / 2 - 100, ALTEZZA / 2 + 128, 180, 54, 'RIGIOCA', COLORI.accento, () => {
+      c.add(pulsante(this, LARGHEZZA / 2 - 100, ALTEZZA / 2 + 148, 180, 54, 'RIGIOCA', COLORI.accento, () => {
         suoni.clic();
         this.scene.restart(this.scelte);
       }, 12).contenitore);
-      c.add(pulsante(this, LARGHEZZA / 2 + 100, ALTEZZA / 2 + 128, 180, 54, 'MENU', COLORI.testoTenue, () => this.alMenu(), 12).contenitore);
+      c.add(pulsante(this, LARGHEZZA / 2 + 100, ALTEZZA / 2 + 148, 180, 54, 'MENU', COLORI.testoTenue, () => this.alMenu(), 12).contenitore);
       c.setAlpha(0);
       this.tweens.add({ targets: c, alpha: 1, duration: 300 });
       this.sovrapposto = c;

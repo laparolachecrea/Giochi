@@ -5,8 +5,9 @@ import type { Fantasma, Partita } from './partita';
 /**
  * Fantasmi controllati dal computer. Rispettano la nebbia: conoscono Pac-Man solo
  * quando la squadra lo vede, altrimenti usano l'ultima posizione nota o pattugliano.
- * Ognuno conserva la "personalità" dell'originale, così la squadra lo accerchia
- * invece di inseguirlo in fila indiana.
+ * Quando c'è un giocatore sono "battitori", come in una battuta di caccia: invece di
+ * inseguire Pac-Man si piazzano dalla parte opposta rispetto al giocatore e lo spingono
+ * verso di lui. Senza giocatore (simulazioni) conservano la personalità dell'originale.
  */
 export function decidiFantasma(p: Partita, f: Fantasma): Direzione {
   const { lab, rng } = p;
@@ -33,7 +34,17 @@ export function bersaglio(p: Partita, f: Fantasma): Casella {
   const fiuto = f.id === 1 && f.attivo > 0;
 
   if (p.pacVisibile || fiuto) {
-    if (Math.hypot(pac.x - qui.x, pac.y - qui.y) <= 3) return pac;
+    if (f.umano || Math.hypot(pac.x - qui.x, pac.y - qui.y) <= 2) return pac;
+    const g = p.umano !== null ? p.fantasmi[p.umano] : null;
+    if (g && g.stato === 'caccia') {
+      // Battitore: si mette oltre Pac-Man, sul lato opposto al giocatore, a distanze diverse.
+      const h = p.casellaDi(g);
+      const dx = pac.x - h.x, dy = pac.y - h.y;
+      const l = Math.hypot(dx, dy) || 1;
+      const compagni = p.fantasmi.filter((x) => !x.umano);
+      const k = 3 + 2 * compagni.indexOf(f);
+      return lab.piuVicinaLibera(pac.x + (dx / l) * k, pac.y + (dy / l) * k);
+    }
     switch (f.id) {
       case 1: return avanti(p, pac, p.pacman.dir, 4);
       case 2: {
@@ -52,21 +63,22 @@ export function bersaglio(p: Partita, f: Fantasma): Casella {
   }
 
   const u = p.ultimaPosizione;
-  if (u && u.eta < 8 && f.id !== 3) {
+  if (u && u.eta < 8 && (f.umano || f.id !== 3)) {
     const nota = { x: u.x, y: u.y };
-    return f.id === 1 && u.dir >= 0 ? avanti(p, nota, u.dir, 4) : nota;
+    return !f.umano && f.id === 1 && u.dir >= 0 ? avanti(p, nota, u.dir, 4) : nota;
   }
   return pattuglia(p, f);
 }
 
-/** Decide se un fantasma del computer usa ora il suo potere. */
+/** Decide se un fantasma del computer (o il giocatore simulato) usa ora il suo potere. */
 export function vuoleUsarePotere(p: Partita, f: Fantasma): boolean {
   if (f.ricarica > 0 || f.stato !== 'caccia' || f.spaventato || p.fase !== 'gioco') return false;
   const u = p.ultimaPosizione;
   const pac = p.casellaDi(p.pacman);
   const qui = p.casellaDi(f);
   switch (f.id) {
-    case 0: return p.pacVisibile && dist2(pac, qui) <= 16;
+    // Lo Scatto lo usa solo il giocatore: un compagno che scatta gli ruberebbe la cattura.
+    case 0: return f.umano && p.pacVisibile && dist2(pac, qui) <= 16;
     case 1: return !p.pacVisibile && (!u || u.eta > 2);
     case 2: {
       const dietro = f.prog > 0 ? f.t : f.precedente;
