@@ -1,0 +1,10 @@
+{
+  "name": "giochi",
+  "private": true,
+  "workspaces": [
+    "giochi/*"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces --if-present"
+  }
+}

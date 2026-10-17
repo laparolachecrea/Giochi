@@ -1,0 +1,24 @@
+{
+  "name": "caccia-a-pacman",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:singolo": "tsc --noEmit && vite build --mode singolo",
+    "test": "vitest run",
+    "bilanciamento": "tsx strumenti/bilanciamento.ts"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "tsx": "4.19.4",
+    "typescript": "5.8.3",
+    "vite": "6.3.5",
+    "vite-plugin-singlefile": "2.2.0",
+    "vitest": "3.2.4"
+  }
+}

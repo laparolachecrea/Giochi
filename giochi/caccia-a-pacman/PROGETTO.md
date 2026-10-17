@@ -1,7 +1,6 @@
 # Caccia a Pac-Man — documento di progetto
 
-> Stato: **bozza da discutere**. Le voci marcate ❓ sono decisioni aperte.
-> Titolo provvisorio.
+> Stato: **versione 0.1 in sviluppo** (giocatore singolo). Titolo provvisorio.
 
 ## 1. Idea in una frase
 
@@ -126,12 +125,53 @@ da codice. ❓ Musica sì/no.
 | **0.3** | Nebbia di guerra, bilanciamento in base ai giocatori, livelli di difficoltà | Partite ripetute |
 | **0.4** | Poteri dei fantasmi, installazione come app (PWA) | — |
 
-## 11. Decisioni aperte
+## 11. Decisioni prese (17 ottobre 2026)
 
-1. Vite di Pac-Man e durata della partita (proposta: 3 vite, 3 minuti).
-2. Nebbia di guerra già dalla 0.1 o dalla 0.3?
-3. Poteri dei fantasmi: sì, no, o diversi da quelli proposti?
-4. Swipe o joystick virtuale sul telefono?
-5. Musica?
-6. Pubblicazione: repository pubblico (GitHub Pages gratuito) o privato (serve un altro
-   servizio di hosting)?
+| Tema | Decisione |
+|---|---|
+| Vite e durata | 3 vite, 3 minuti |
+| Nebbia di guerra | Sì, già dalla 0.1 |
+| Poteri dei fantasmi | Sì, quelli proposti, già dalla 0.1 |
+| Comandi su telefono | Scorrimento del dito |
+| Musica | Sì (originale, generata da codice) |
+| Priorità | Prima la giocabilità per un giocatore; multigiocatore dopo |
+| Dispositivi | Web app per telefono e PC; si punta a dispositivi recenti, senza rinunce grafiche |
+
+## 12. Bilanciamento: cosa dicono i dati
+
+Lo strumento `npm run bilanciamento` simula centinaia di partite con quattro fantasmi
+controllati dal computer. Prima versione (Pac-Man veloce quanto i fantasmi):
+
+| Difficoltà | Fantasmi vincono | Durata media |
+|---|---|---|
+| Facile | 100% | 32 s |
+| Normale | 99% | 40 s |
+| Difficile | 98% | 57 s |
+
+Il rischio previsto al §2 si è verificato: quattro fantasmi coordinati vincono sempre.
+La diagnosi ha mostrato due cause:
+
+1. **Lo Scatto era sbilanciato**: 88 catture su 179 avvenivano con lo Scatto di Blinky
+   attivo (velocità ×1,8 per 2 secondi = circa 8 caselle di vantaggio). Ridotto a ×1,4.
+2. **Pac-Man deve essere più veloce dei fantasmi** (come nell'originale). Così non lo si
+   prende inseguendolo, ma solo accerchiandolo: la meccanica premia la collaborazione.
+
+Valori attuali (velocità di Pac-Man rispetto ai fantasmi: +12%, +18%, +24%):
+
+| Difficoltà | Fantasmi vincono | Durata media | Puntini rimasti |
+|---|---|---|---|
+| Facile | 96% | 62 s | 24 |
+| Normale | 63% | 82 s | 8 |
+| Difficile | 40% | 89 s | 4 |
+
+Da osservare nelle prove con persone vere: il limite di 3 minuti oggi non scatta quasi mai,
+perché le partite finiscono prima (cattura o puntini finiti).
+
+## 13. Scelte di progetto emerse durante lo sviluppo
+
+- **Indizi sonori**: il "waka" di Pac-Man è tanto più forte quanto più è vicino al tuo
+  fantasma. Nella nebbia l'udito diventa uno strumento di caccia.
+- **Memoria della squadra**: i puntini fuori vista restano come la squadra li ricorda.
+  Tornando in una zona si scopre dove Pac-Man è passato (le sue tracce).
+- **Ultima posizione nota**: un cerchio tratteggiato con "?" indica dove Pac-Man è stato
+  visto l'ultima volta, e sbiadisce in 8 secondi.

@@ -13,7 +13,8 @@ Giochi/
 ├── condivisi/             ← codice comune (menu, audio, comandi touch, rete…)
 └── giochi/
     └── caccia-a-pacman/   ← Pac-Man rovesciato: i giocatori sono i fantasmi
-        └── PROGETTO.md    ← documento di progetto (in discussione)
+        ├── PROGETTO.md    ← documento di progetto
+        └── README.md      ← come si gioca e come si sviluppa
 ```
 
 ## Metodo di lavoro
@@ -28,4 +29,4 @@ Giochi/
 
 | Gioco | Stato | Cartella |
 |---|---|---|
-| Caccia a Pac-Man | Progettazione | [`giochi/caccia-a-pacman`](giochi/caccia-a-pacman/PROGETTO.md) |
+| Caccia a Pac-Man | Versione 0.1 (giocatore singolo) | [`giochi/caccia-a-pacman`](giochi/caccia-a-pacman/PROGETTO.md) |
