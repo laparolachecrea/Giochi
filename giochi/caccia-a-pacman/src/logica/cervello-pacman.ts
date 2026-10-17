@@ -72,8 +72,15 @@ function scegliObiettivo(p: Partita, dp: Int16Array, distFantasma: (i: number) =
     const v = valuta(i);
     if (v > punteggio) { punteggio = v; migliore = i; }
   }
+  // La frutta lo attira: è la sua arma contro i fantasmi.
+  if (p.frutto) {
+    const i = p.frutto.i;
+    const margine = distFantasma(i) - dp[i];
+    const v = -dp[i] + Math.min(margine, 10) * 0.5 + 10;
+    if (margine > 2 && dp[i] / p.diff.velocitaPacman < p.frutto.resta && v > punteggio) { punteggio = v; migliore = i; }
+  }
   // Isteresi: cambia obiettivo solo se il nuovo è nettamente migliore (evita i ripensamenti).
-  if (pm.obiettivo !== null && p.rimasti.has(pm.obiettivo)) {
+  if (pm.obiettivo !== null && p.rimasti.has(pm.obiettivo) && pm.obiettivo !== p.frutto?.i) {
     const attuale = valuta(pm.obiettivo);
     if (attuale > -Infinity && attuale + 2 >= punteggio) return pm.obiettivo;
   }

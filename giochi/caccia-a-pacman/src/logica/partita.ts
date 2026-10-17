@@ -1,6 +1,6 @@
 import type { Direzione } from '@condivisi/comandi/direzionale';
 import { Labirinto, DX, DY, opposta, type Casella } from './labirinto';
-import { DIFFICOLTA, FANTASMI, REGOLE, type Difficolta, type LivelloDifficolta } from './costanti';
+import { DIFFICOLTA, FANTASMI, REGOLE, potereDi, type Difficolta, type LivelloDifficolta, type TipoFrutto } from './costanti';
 import { decidiPacman } from './cervello-pacman';
 import { decidiFantasma, vuoleUsarePotere } from './cervello-fantasmi';
 
@@ -55,6 +55,9 @@ export type Evento =
   | { tipo: 'potere'; id: number }
   | { tipo: 'potereNegato'; id: number }
   | { tipo: 'via' }
+  | { tipo: 'fruttoAppare'; frutto: TipoFrutto; x: number; y: number }
+  /** `da`: 'pacman' se l'ha mangiato lui, altrimenti l'indice del fantasma che l'ha difeso. */
+  | { tipo: 'frutto'; frutto: TipoFrutto; x: number; y: number; da: 'pacman' | number }
   | { tipo: 'fine' };
 
 export type Fase = 'pronti' | 'gioco' | 'presa' | 'fine';
@@ -70,6 +73,8 @@ export interface OpzioniPartita {
   umano: number | null;
   /** Il posto del giocatore è guidato dal computer (per collaudi e bilanciamento). */
   autopilota?: boolean;
+  /** Nebbia di guerra (predefinita: sì). Senza nebbia Pac-Man è sempre visibile. */
+  nebbia?: boolean;
   seme?: number;
 }
 
@@ -93,6 +98,7 @@ export class Partita {
   readonly fantasmi: Fantasma[];
   readonly umano: number | null;
   readonly autopilota: boolean;
+  readonly nebbia: boolean;
 
   fase: Fase = 'pronti';
   timerFase = REGOLE.durataPronti;
@@ -100,6 +106,12 @@ export class Partita {
   vite = REGOLE.vitePacman;
   spavento = 0;
   rivelato = 0;
+  frutto: { i: number; tipo: TipoFrutto; resta: number } | null = null;
+  prossimoFrutto = REGOLE.primoFrutto;
+  private contaFrutti = 0;
+  /** Secondi rimasti dei malus della frutta. */
+  rallentamento = 0;
+  turbo = 0;
   /** Energia dei poteri della squadra (vedi REGOLE.energiaMassima). */
   energia = REGOLE.energiaMassima;
   esito: Esito | null = null;
@@ -119,6 +131,7 @@ export class Partita {
     this.rng = mulberry32(opzioni.seme ?? Math.floor(Math.random() * 2 ** 31));
     this.umano = opzioni.umano;
     this.autopilota = opzioni.autopilota ?? false;
+    this.nebbia = opzioni.nebbia ?? true;
     const n = this.lab.larghezza * this.lab.altezza;
     this.conosciuti = new Uint8Array(n);
     this.visibili = new Uint8Array(n);
@@ -166,6 +179,9 @@ export class Partita {
     this.spavento = Math.max(0, this.spavento - dt);
     if (this.spavento === 0) this.fantasmi.forEach((f) => (f.spaventato = false));
     this.rivelato = Math.max(0, this.rivelato - dt);
+    this.rallentamento = Math.max(0, this.rallentamento - dt);
+    this.turbo = Math.max(0, this.turbo - dt);
+    this.aggiornaFrutto(dt);
     if (this.ultimaPosizione) this.ultimaPosizione.eta += dt;
 
     for (const f of this.fantasmi) {
@@ -175,7 +191,10 @@ export class Partita {
       if (vuole) this.usaPotere(f);
     }
 
-    this.muovi(this.pacman, this.diff.velocitaPacman * dt, () => {
+    let velocitaPac = this.diff.velocitaPacman * (this.nebbia ? 1 : REGOLE.bonusSenzaNebbia);
+    if (!this.nebbia && this.fantasmi[3].attivo > 0) velocitaPac *= REGOLE.fattoreOnda;
+    if (this.turbo > 0) velocitaPac *= REGOLE.turboArancia;
+    this.muovi(this.pacman, velocitaPac * dt, () => {
       this.pacman.dir = decidiPacman(this);
     }, () => this.mangia());
     if (this.fase !== 'gioco') return;
@@ -253,6 +272,7 @@ export class Partita {
     }
 
     let velocita = REGOLE.velocitaFantasma * (f.umano ? 1 : REGOLE.fattoreCompagni);
+    if (this.rallentamento > 0) velocita *= REGOLE.rallentaCiliegia;
     if (f.spaventato) velocita *= REGOLE.fattoreSpavento;
     if (f.id === 0 && f.attivo > 0) velocita *= REGOLE.fattoreScatto;
     const c = this.casellaDi(f);
@@ -288,6 +308,7 @@ export class Partita {
   private mangia(): void {
     const c = this.pacman.t;
     const i = this.lab.indice(c.x, c.y);
+    if (this.frutto && this.frutto.i === i) this.prendiFrutto('pacman');
     if (!this.rimasti.has(i)) return;
     this.rimasti.delete(i);
     if (this.lab.superpillole.includes(i)) {
@@ -309,6 +330,14 @@ export class Partita {
   }
 
   private controllaContatti(): void {
+    if (this.frutto) {
+      const difensore = this.fantasmi.find((f) => {
+        if (f.stato !== 'caccia' || f.spaventato) return false;
+        const c = this.casellaDi(f);
+        return this.lab.indice(c.x, c.y) === this.frutto!.i;
+      });
+      if (difensore) this.prendiFrutto(difensore.id);
+    }
     const p = this.posizione(this.pacman);
     const L = this.lab.larghezza;
     for (const f of this.fantasmi) {
@@ -346,12 +375,12 @@ export class Partita {
       this.eventi.push({ tipo: 'potereNegato', id: f.id });
       return;
     }
-    const def = FANTASMI[f.id];
+    const def = potereDi(f.id, this.nebbia);
     const perso = REGOLE.energiaMassima - this.energia;
     f.ricarica = def.ricarica * (f.umano ? 1 : REGOLE.ricaricaCompagni) * (1 + REGOLE.penalitaRicarica * perso);
     f.ricaricaTotale = f.ricarica;
     f.attivo = def.durata * (1 - REGOLE.penalitaDurata * perso);
-    if (f.id === 3) this.rivelato = Math.max(this.rivelato, f.attivo);
+    if (f.id === 3 && this.nebbia) this.rivelato = Math.max(this.rivelato, f.attivo);
     this.eventi.push({ tipo: 'potere', id: f.id });
   }
 
@@ -362,7 +391,7 @@ export class Partita {
     const i = this.lab.indice(dietro.x, dietro.y);
     const tutti: Mobile[] = [this.pacman, ...this.fantasmi.filter((g) => g.stato === 'caccia')];
     if (tutti.some((m) => { const c = this.casellaDi(m); return this.lab.indice(c.x, c.y) === i; })) return false;
-    this.lab.muriTemporanei.set(i, FANTASMI[2].durata * (1 - REGOLE.penalitaDurata * (REGOLE.energiaMassima - this.energia)));
+    this.lab.muriTemporanei.set(i, potereDi(2, this.nebbia).durata * (1 - REGOLE.penalitaDurata * (REGOLE.energiaMassima - this.energia)));
     // Chi stava entrando in quella casella torna indietro.
     for (const m of tutti) {
       if (m.prog > 0 && m.dir >= 0) {
@@ -371,6 +400,54 @@ export class Partita {
       }
     }
     return true;
+  }
+
+  // ————————————————————————————— frutta —————————————————————————————
+
+  private aggiornaFrutto(dt: number): void {
+    if (this.frutto) {
+      this.frutto.resta -= dt;
+      if (this.frutto.resta <= 0) { this.frutto = null; this.prossimoFrutto = REGOLE.intervalloFrutto; }
+      return;
+    }
+    this.prossimoFrutto -= dt;
+    if (this.prossimoFrutto > 0) return;
+    // Compare lontano da Pac-Man e non addosso a un fantasma: deve diventare una contesa.
+    const dp = this.lab.distanze([this.casellaDi(this.pacman)]);
+    const dg = this.lab.distanze(this.fantasmi.filter((f) => f.stato === 'caccia').map((f) => this.casellaDi(f)));
+    const adatte = this.lab.percorribili.filter((i) => {
+      const c = this.lab.casella(i);
+      const tunnel = c.y === 9 && (c.x <= 3 || c.x >= this.lab.larghezza - 4);
+      return !tunnel && dp[i] >= 7 && dp[i] <= 16 && dg[i] >= 4;
+    });
+    if (adatte.length === 0) { this.prossimoFrutto = 2; return; }
+    const i = adatte[Math.floor(this.rng() * adatte.length)];
+    const tipi: TipoFrutto[] = ['ciliegia', 'fragola', 'arancia'];
+    const tipo = tipi[this.contaFrutti++ % tipi.length];
+    this.frutto = { i, tipo, resta: REGOLE.durataFrutto };
+    const c = this.lab.casella(i);
+    this.eventi.push({ tipo: 'fruttoAppare', frutto: tipo, x: c.x, y: c.y });
+  }
+
+  private prendiFrutto(da: 'pacman' | number): void {
+    const f = this.frutto!;
+    const c = this.lab.casella(f.i);
+    this.frutto = null;
+    this.prossimoFrutto = REGOLE.intervalloFrutto;
+    if (da === 'pacman') {
+      if (f.tipo === 'ciliegia') this.rallentamento = REGOLE.durataCiliegia;
+      if (f.tipo === 'arancia') this.turbo = REGOLE.durataArancia;
+      if (f.tipo === 'fragola') {
+        for (const g of this.fantasmi) {
+          g.ricarica += REGOLE.scaricaFragola;
+          g.ricaricaTotale = Math.max(g.ricaricaTotale, g.ricarica);
+        }
+      }
+    } else if (this.fantasmi[da].umano) {
+      // Chi difende il frutto ritrova subito il proprio potere.
+      this.fantasmi[da].ricarica = 0;
+    }
+    this.eventi.push({ tipo: 'frutto', frutto: f.tipo, x: c.x, y: c.y, da });
   }
 
   private termina(vincitore: Esito['vincitore'], motivo: Esito['motivo']): void {
@@ -400,6 +477,9 @@ export class Partita {
     this.pacman.obiettivo = null;
     this.spavento = 0;
     this.rivelato = 0;
+    this.rallentamento = 0;
+    this.turbo = 0;
+    if (this.frutto) { this.frutto = null; this.prossimoFrutto = REGOLE.intervalloFrutto; }
     this.ultimaPosizione = null;
     this.lab.muriTemporanei.clear();
     let slot = 0;
@@ -422,10 +502,11 @@ export class Partita {
 
   private calcolaVisione(): void {
     const { lab, visibili } = this;
-    visibili.fill(0);
+    visibili.fill(this.nebbia ? 0 : 1);
     const r = REGOLE.raggioVicino;
     const ri = Math.ceil(r);
     for (const f of this.fantasmi) {
+      if (!this.nebbia) break;
       if (f.stato !== 'caccia' && f.stato !== 'uscita') continue;
       const c = f.stato === 'caccia' ? this.casellaDi(f) : { x: Math.round(f.px), y: Math.round(f.py) };
       for (let dy = -ri; dy <= ri; dy++) {

@@ -188,3 +188,45 @@ export function creaTexturePuntini(scena: Phaser.Scene): void {
   g.generateTexture('pillola', 64, 64);
   g.destroy();
 }
+
+/** Frutta disegnata da codice, con alone; `resta` (0–1) disegna il tempo rimasto come anello. */
+export function disegnaFrutto(g: G, x: number, y: number, tipo: string, t: number, resta: number): void {
+  const colore = tipo === 'arancia' ? 0xffa63b : tipo === 'fragola' ? 0xff5f8f : 0xff3b5c;
+  const s = 1 + Math.sin(t * 5) * 0.06;
+  g.fillStyle(colore, 0.12);
+  g.fillCircle(x, y, 22 * s);
+  g.fillStyle(colore, 0.22);
+  g.fillCircle(x, y, 15 * s);
+  g.lineStyle(2, 0xffffff, 0.5);
+  g.beginPath();
+  g.arc(x, y, 17, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * resta, false);
+  g.strokePath();
+  const verde = 0x5dd16a;
+  if (tipo === 'ciliegia') {
+    g.lineStyle(2, verde, 1);
+    g.lineBetween(x - 4, y + 2, x + 3, y - 9);
+    g.lineBetween(x + 5, y + 1, x + 3, y - 9);
+    g.fillStyle(colore, 1);
+    g.fillCircle(x - 5, y + 4, 5.5);
+    g.fillCircle(x + 5, y + 3, 5.5);
+    g.fillStyle(0xffffff, 0.6);
+    g.fillCircle(x - 7, y + 2, 1.6);
+    g.fillCircle(x + 3, y + 1, 1.6);
+  } else if (tipo === 'fragola') {
+    g.fillStyle(colore, 1);
+    g.fillTriangle(x - 8, y - 3, x + 8, y - 3, x, y + 10);
+    g.fillCircle(x - 4, y - 3, 4.5);
+    g.fillCircle(x + 4, y - 3, 4.5);
+    g.fillStyle(0xfff1a8, 1);
+    for (const [dx, dy] of [[-4, -1], [3, -2], [0, 3], [-2, 6], [3, 5]]) g.fillCircle(x + dx, y + dy, 0.9);
+    g.fillStyle(verde, 1);
+    g.fillTriangle(x - 6, y - 8, x + 6, y - 8, x, y - 4);
+  } else {
+    g.fillStyle(colore, 1);
+    g.fillCircle(x, y + 1, 8);
+    g.fillStyle(0xffffff, 0.35);
+    g.fillCircle(x - 3, y - 2, 2.2);
+    g.fillStyle(verde, 1);
+    g.fillEllipse(x + 4, y - 8, 7, 3.5);
+  }
+}

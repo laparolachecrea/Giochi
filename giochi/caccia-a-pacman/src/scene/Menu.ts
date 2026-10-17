@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { DIFFICOLTA, FANTASMI, type LivelloDifficolta } from '../logica/costanti';
+import { DIFFICOLTA, FANTASMI, potereDi, type LivelloDifficolta } from '../logica/costanti';
 import { disegnaFantasma, disegnaPacman } from '../grafica/disegno';
 import { preparaScena, pulsante, testo, testoNeon, type Pulsante } from '../grafica/interfaccia';
 import { ALTEZZA_BASE, COLORI, LARGHEZZA } from '../grafica/stile';
@@ -8,6 +8,7 @@ import { suoni, synth } from '../suoni';
 export interface Scelte {
   fantasma: number;
   difficolta: LivelloDifficolta;
+  nebbia: boolean;
 }
 
 const CHIAVE = 'caccia-a-pacman:scelte';
@@ -15,9 +16,9 @@ const CHIAVE = 'caccia-a-pacman:scelte';
 function leggiScelte(): Scelte {
   try {
     const s = JSON.parse(localStorage.getItem(CHIAVE) ?? '');
-    if (FANTASMI[s.fantasma] && DIFFICOLTA[s.difficolta as LivelloDifficolta]) return s;
+    if (FANTASMI[s.fantasma] && DIFFICOLTA[s.difficolta as LivelloDifficolta]) return { ...s, nebbia: s.nebbia === true };
   } catch { /* prima visita o archiviazione non disponibile */ }
-  return { fantasma: 0, difficolta: 'normale' };
+  return { fantasma: 0, difficolta: 'facile', nebbia: false };
 }
 
 function salvaScelte(s: Scelte): void {
@@ -29,12 +30,14 @@ export class Menu extends Phaser.Scene {
   private animazione!: Phaser.GameObjects.Graphics;
   private schede: Array<{ g: Phaser.GameObjects.Graphics; x: number; y: number }> = [];
   private ritratti!: Phaser.GameObjects.Graphics;
+  private testiPotere: Array<{ nome: Phaser.GameObjects.Text; descrizione: Phaser.GameObjects.Text }> = [];
 
   constructor() { super('Menu'); }
 
   create(): void {
     this.scelte = leggiScelte();
     this.schede = [];
+    this.testiPotere = [];
     preparaScena(this, ALTEZZA_BASE / 2);
 
     testo(this, LARGHEZZA / 2, 52, 'CACCIA A', 18, COLORI.testoTenue);
@@ -51,28 +54,41 @@ export class Menu extends Phaser.Scene {
       const g = this.add.graphics();
       this.schede.push({ g, x, y });
       testo(this, x + 168, y + 22, def.nome.toUpperCase(), 13, def.colore);
-      testo(this, x + 168, y + 48, def.potere, 10, 0xffffff);
-      testo(this, x + 168, y + 80, def.descrizione, 8, COLORI.testoTenue, { wordWrap: { width: 170 }, lineSpacing: 6 });
+      this.testiPotere.push({
+        nome: testo(this, x + 168, y + 48, '', 10, 0xffffff),
+        descrizione: testo(this, x + 168, y + 80, '', 8, COLORI.testoTenue, { wordWrap: { width: 170 }, lineSpacing: 6 }),
+      });
       const zona = this.add.zone(x + 136, y + 55, 272, 110).setInteractive({ useHandCursor: true });
       zona.on('pointerdown', () => { this.scelte.fantasma = id; suoni.clic(); this.aggiornaSchede(); });
     });
     this.aggiornaSchede();
 
-    testo(this, LARGHEZZA / 2, 540, 'DIFFICOLTÀ', 12, COLORI.testoTenue);
+    testo(this, LARGHEZZA / 2, 528, 'DIFFICOLTÀ', 12, COLORI.testoTenue);
     const livelli = Object.keys(DIFFICOLTA) as LivelloDifficolta[];
     const bottoni: Pulsante[] = livelli.map((liv, i) =>
-      pulsante(this, 112 + i * 192, 578, 176, 44, DIFFICOLTA[liv].etichetta.toUpperCase(), [0x3ff0ff, 0xffe14d, 0xff3b5c][i], () => {
+      pulsante(this, 112 + i * 192, 560, 176, 42, DIFFICOLTA[liv].etichetta.toUpperCase(), [0x3ff0ff, 0xffe14d, 0xff3b5c][i], () => {
         this.scelte.difficolta = liv;
         suoni.clic();
         bottoni.forEach((b, j) => b.imposta(livelli[j] === liv));
       }, 11));
     bottoni.forEach((b, j) => b.imposta(livelli[j] === this.scelte.difficolta));
 
-    const gioca = pulsante(this, LARGHEZZA / 2, 668, 300, 70, 'GIOCA', COLORI.pacman, () => this.avvia(), 22);
+    testo(this, LARGHEZZA / 2, 608, 'NEBBIA', 12, COLORI.testoTenue);
+    const opzioniNebbia = [false, true];
+    const nebbia: Pulsante[] = opzioniNebbia.map((v, i) =>
+      pulsante(this, LARGHEZZA / 2 - 90 + i * 180, 640, 164, 42, v ? 'SÌ' : 'NO', 0x8a93c9, () => {
+        this.scelte.nebbia = v;
+        suoni.clic();
+        nebbia.forEach((b, j) => b.imposta(opzioniNebbia[j] === v));
+        this.aggiornaSchede();
+      }, 11));
+    nebbia.forEach((b, j) => b.imposta(opzioniNebbia[j] === this.scelte.nebbia));
+
+    const gioca = pulsante(this, LARGHEZZA / 2, 712, 300, 62, 'GIOCA', COLORI.pacman, () => this.avvia(), 22);
     this.tweens.add({ targets: gioca.contenitore, scale: 1.04, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
 
-    testo(this, LARGHEZZA / 2, 742, 'PC: frecce o WASD · SPAZIO = potere', 8, COLORI.testoTenue);
-    testo(this, LARGHEZZA / 2, 764, 'Telefono: scorri il dito · tocca il pulsante', 8, COLORI.testoTenue);
+    testo(this, LARGHEZZA / 2, 770, 'PC: frecce o WASD · SPAZIO = potere', 8, COLORI.testoTenue);
+    testo(this, LARGHEZZA / 2, 792, 'Telefono: scorri il dito · tocca il cerchio = potere', 8, COLORI.testoTenue);
 
     this.input.keyboard?.once('keydown-ENTER', () => this.avvia());
   }
@@ -98,6 +114,11 @@ export class Menu extends Phaser.Scene {
   }
 
   private aggiornaSchede(): void {
+    this.testiPotere.forEach(({ nome, descrizione }, id) => {
+      const potere = potereDi(id, this.scelte.nebbia);
+      nome.setText(`Potere: ${potere.nome}`);
+      descrizione.setText(potere.descrizione);
+    });
     this.schede.forEach(({ g, x, y }, id) => {
       const scelto = id === this.scelte.fantasma;
       const c = FANTASMI[id].colore;

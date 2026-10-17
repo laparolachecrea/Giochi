@@ -1,5 +1,6 @@
 import type { Direzione } from '@condivisi/comandi/direzionale';
 import { opposta, type Casella } from './labirinto';
+import { REGOLE } from './costanti';
 import type { Fantasma, Partita } from './partita';
 
 /**
@@ -31,7 +32,9 @@ export function bersaglio(p: Partita, f: Fantasma): Casella {
   const { lab } = p;
   const pac = p.casellaDi(p.pacman);
   const qui = p.casellaDi(f);
-  const fiuto = f.id === 1 && f.attivo > 0;
+  const fiuto = p.nebbia && f.id === 1 && f.attivo > 0;
+  // Richiamo di Pinky (senza nebbia): tutti i compagni puntano dritti su Pac-Man.
+  if (!p.nebbia && !f.umano && p.fantasmi[1].attivo > 0) return pac;
 
   if (p.pacVisibile || fiuto) {
     if (f.umano || Math.hypot(pac.x - qui.x, pac.y - qui.y) <= 2) return pac;
@@ -63,7 +66,7 @@ export function bersaglio(p: Partita, f: Fantasma): Casella {
   }
 
   const u = p.ultimaPosizione;
-  if (u && u.eta < 8 && (f.umano || f.id !== 3)) {
+  if (u && u.eta < REGOLE.memoriaPosizione && (f.umano || f.id !== 3)) {
     const nota = { x: u.x, y: u.y };
     return !f.umano && f.id === 1 && u.dir >= 0 ? avanti(p, nota, u.dir, 4) : nota;
   }
@@ -79,7 +82,12 @@ export function vuoleUsarePotere(p: Partita, f: Fantasma): boolean {
   switch (f.id) {
     // Lo Scatto lo usa solo il giocatore: un compagno che scatta gli ruberebbe la cattura.
     case 0: return f.umano && p.pacVisibile && dist2(pac, qui) <= 16;
-    case 1: return !p.pacVisibile && (!u || u.eta > 2);
+    case 1: {
+      if (p.nebbia) return !p.pacVisibile && (!u || u.eta > 2);
+      // Richiamo: quando Pac-Man è vicino al giocatore, i compagni accorrono.
+      const g = p.umano !== null ? p.fantasmi[p.umano] : f;
+      return dist2(pac, p.casellaDi(g)) <= 49;
+    }
     case 2: {
       const dietro = f.prog > 0 ? f.t : f.precedente;
       if (!p.pacVisibile || !dietro || dist2(pac, qui) > 64) return false;
@@ -87,7 +95,11 @@ export function vuoleUsarePotere(p: Partita, f: Fantasma): boolean {
       const dpac = p.lab.distanze([pac]);
       return dpac[p.lab.indice(dietro.x, dietro.y)] < dpac[p.lab.indice(qui.x, qui.y)];
     }
-    case 3: return !p.pacVisibile && (!u || u.eta > 4);
+    case 3: {
+      if (p.nebbia) return !p.pacVisibile && (!u || u.eta > 4);
+      // Onda: rallenta Pac-Man quando un fantasma gli è addosso.
+      return p.fantasmi.some((g) => g.stato === 'caccia' && dist2(pac, p.casellaDi(g)) <= 25);
+    }
   }
   return false;
 }

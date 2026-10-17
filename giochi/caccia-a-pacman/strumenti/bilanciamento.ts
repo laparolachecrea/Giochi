@@ -10,12 +10,14 @@ import type { LivelloDifficolta } from '../src/logica/costanti';
 const partite = Number(process.argv[2] ?? 200);
 const passo = 1 / 30;
 
+for (const nebbia of [false, true]) {
+console.log(nebbia ? '— con nebbia —' : '— senza nebbia —');
 for (const difficolta of ['facile', 'normale', 'difficile'] as LivelloDifficolta[]) {
   const conta = { catture: 0, puntini: 0, tempo: 0 };
   let durata = 0, rimasti = 0, mangiati = 0, catture = 0, delGiocatore = 0;
   for (let seme = 0; seme < partite; seme++) {
     const umano = seme % 4;
-    const p = new Partita({ difficolta, umano, autopilota: true, seme });
+    const p = new Partita({ difficolta, umano, autopilota: true, nebbia, seme });
     let t = 0;
     while (p.fase !== 'fine' && t < 400) { p.aggiorna(passo); t += passo; }
     conta[p.esito!.motivo]++;
@@ -31,4 +33,5 @@ for (const difficolta of ['facile', 'normale', 'difficile'] as LivelloDifficolta
     ` | durata media ${(durata / partite).toFixed(0)}s, puntini rimasti ${(rimasti / partite).toFixed(0)}, fantasmi mangiati ${(mangiati / partite).toFixed(1)}` +
     ` | catture del giocatore ${pct(delGiocatore * partite / Math.max(1, catture))}`,
   );
+}
 }

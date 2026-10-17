@@ -65,6 +65,10 @@ export const suoni = {
       case 3: [0, 0.18, 0.36].forEach((r, i) => synth.nota({ onda: 'sine', da: 1250, durata: 0.25, volume: 0.13 / (i + 1), ritardo: r })); break;
     }
   },
+  pronto: () => [84, 88].forEach((n, i) => synth.nota({ onda: 'sine', da: 440 * 2 ** ((n - 69) / 12), durata: 0.12, volume: 0.1, ritardo: i * 0.08 })),
+  fruttoAppare: () => [76, 79, 84].forEach((n, i) => synth.nota({ onda: 'triangle', da: 440 * 2 ** ((n - 69) / 12), durata: 0.1, volume: 0.12, ritardo: i * 0.06 })),
+  fruttoPreso: () => synth.nota({ onda: 'sawtooth', da: 600, a: 150, durata: 0.35, volume: 0.1 }),
+  fruttoDifeso: () => [72, 76, 79, 84].forEach((n, i) => synth.nota({ onda: 'square', da: 440 * 2 ** ((n - 69) / 12), durata: 0.08, volume: 0.09, ritardo: i * 0.05 })),
   negato: () => synth.nota({ onda: 'square', da: 110, durata: 0.15, volume: 0.1 }),
   via: () => [64, 69, 76].forEach((n, i) => synth.nota({ onda: 'square', da: 440 * 2 ** ((n - 69) / 12), durata: 0.14, volume: 0.1, ritardo: i * 0.15 })),
   vittoria: () => [69, 72, 76, 81, 76, 81].forEach((n, i) => synth.nota({ onda: 'square', da: 440 * 2 ** ((n - 69) / 12), durata: 0.2, volume: 0.12, ritardo: i * 0.13 })),

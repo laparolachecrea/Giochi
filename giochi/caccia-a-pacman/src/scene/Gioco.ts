@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 import { ComandiDirezionali } from '@condivisi/comandi/direzionale';
 import { Partita, type Evento, type Fantasma } from '../logica/partita';
-import { FANTASMI, REGOLE } from '../logica/costanti';
-import { creaTexturePuntini, creaTextureScintilla, disegnaFantasma, disegnaFreccia, disegnaLabirinto, disegnaPacman } from '../grafica/disegno';
+import { FANTASMI, FRUTTI, REGOLE, potereDi } from '../logica/costanti';
+import { vuoleUsarePotere } from '../logica/cervello-fantasmi';
+import { creaTexturePuntini, creaTextureScintilla, disegnaFantasma, disegnaFrutto, disegnaFreccia, disegnaLabirinto, disegnaPacman } from '../grafica/disegno';
 import { cuoci, preparaScena, pulsante, testo, testoNeon } from '../grafica/interfaccia';
 import { ALTEZZA, ALTEZZA_HUD, CASELLA, COLORI, LARGHEZZA, pixel } from '../grafica/stile';
 import { musica, suoni, synth } from '../suoni';
@@ -41,6 +42,8 @@ export class Gioco extends Phaser.Scene {
   private testoStato!: Phaser.GameObjects.Text;
   private testoTu!: Phaser.GameObjects.Text;
   private testoDubbio!: Phaser.GameObjects.Text;
+  private avviso!: Phaser.GameObjects.Text;
+  private eraPronto = false;
   private messaggio!: Phaser.GameObjects.Text;
   private sovrapposto: Phaser.GameObjects.Container | null = null;
 
@@ -56,7 +59,8 @@ export class Gioco extends Phaser.Scene {
   }
 
   create(): void {
-    this.partita = new Partita({ difficolta: this.scelte.difficolta, umano: this.scelte.fantasma });
+    this.partita = new Partita({ difficolta: this.scelte.difficolta, umano: this.scelte.fantasma, nebbia: this.scelte.nebbia });
+    this.eraPronto = false;
     preparaScena(this);
     creaTextureScintilla(this);
     this.cameras.main.fadeIn(300, 4, 5, 13);
@@ -169,16 +173,41 @@ export class Gioco extends Phaser.Scene {
         const c = pixel(p.posizione(f).x, p.posizione(f).y);
         if (e.id === 3) this.anelli.push({ ...c, nato: this.t, colore: FANTASMI[3].colore, raggio: 420 });
         else this.anelli.push({ ...c, nato: this.t, colore: FANTASMI[e.id].colore, raggio: 60 });
-        if (e.id === this.scelte.fantasma) this.mostraMessaggio(FANTASMI[e.id].potere.toUpperCase() + '!', FANTASMI[e.id].colore, 700);
+        const nome = potereDi(e.id, p.nebbia).nome.toUpperCase();
+        if (e.id === this.scelte.fantasma) this.mostraMessaggio(nome + '!', FANTASMI[e.id].colore, 700);
+        else this.mostraAvviso(`${FANTASMI[e.id].nome.toUpperCase()} USA ${nome}`, FANTASMI[e.id].colore);
         break;
       }
       case 'potereNegato':
         suoni.negato();
         break;
-      case 'via':
+      case 'via': {
         suoni.via();
         this.mostraMessaggio('VIA!', 0x7dff9a, 600);
+        const come = this.sys.game.device.input.touch ? 'TOCCA IL CERCHIO IN BASSO' : 'PREMI SPAZIO';
+        this.mostraAvviso(`${come} PER USARE ${potereDi(this.scelte.fantasma, p.nebbia).nome.toUpperCase()}`, FANTASMI[this.scelte.fantasma].colore, 3500);
         break;
+      }
+      case 'fruttoAppare': {
+        suoni.fruttoAppare();
+        const c = pixel(e.x, e.y);
+        this.anelli.push({ ...c, nato: this.t, colore: FRUTTI[e.frutto].colore, raggio: 80 });
+        this.mostraAvviso(`È APPARSA UNA ${FRUTTI[e.frutto].nome.toUpperCase()}: DIFENDILA!`, FRUTTI[e.frutto].colore);
+        break;
+      }
+      case 'frutto': {
+        const c = pixel(e.x, e.y);
+        this.scoppio(c, FRUTTI[e.frutto].colore, 30);
+        if (e.da === 'pacman') {
+          suoni.fruttoPreso();
+          this.mostraMessaggio(`PAC-MAN HA PRESO\n\nLA ${FRUTTI[e.frutto].nome.toUpperCase()}!\n\n${FRUTTI[e.frutto].malus}`, FRUTTI[e.frutto].colore, 1800);
+        } else {
+          suoni.fruttoDifeso();
+          if (e.da === this.scelte.fantasma) this.mostraMessaggio('FRUTTO DIFESO!\n\nPOTERE RICARICATO', 0x7dff9a, 1500);
+          else this.mostraAvviso(`${FANTASMI[e.da].nome.toUpperCase()} HA DIFESO IL FRUTTO`, FANTASMI[e.da].colore);
+        }
+        break;
+      }
       case 'fine':
         this.fine();
         break;
@@ -188,6 +217,14 @@ export class Gioco extends Phaser.Scene {
   private scoppio(c: { x: number; y: number }, colore: number, quanti: number): void {
     this.coloreScoppio = colore;
     this.scoppi.explode(quanti, c.x, c.y);
+  }
+
+  /** Avviso breve in cima al labirinto (azioni dei compagni, frutta, suggerimenti). */
+  private mostraAvviso(contenuto: string, colore: number, durataMs = 1800): void {
+    const a = this.avviso;
+    this.tweens.killTweensOf(a);
+    a.setText(contenuto).setColor(`#${colore.toString(16).padStart(6, '0')}`).setAlpha(1);
+    this.tweens.add({ targets: a, alpha: 0, delay: durataMs, duration: 400 });
   }
 
   private mostraMessaggio(contenuto: string, colore: number, durataMs: number): void {
@@ -233,10 +270,10 @@ export class Gioco extends Phaser.Scene {
       const c = pixel(q.x, q.y);
       disegnaPacman(g, c.x, c.y, p.pacman.dir, p.fase === 'gioco' ? t : 0.1, 13);
       this.testoDubbio.setVisible(false);
-    } else if (p.ultimaPosizione && p.ultimaPosizione.eta < 8) {
+    } else if (p.ultimaPosizione && p.ultimaPosizione.eta < REGOLE.memoriaPosizione) {
       const u = p.ultimaPosizione;
       const c = pixel(u.x, u.y);
-      const alfa = 1 - u.eta / 8;
+      const alfa = 1 - u.eta / REGOLE.memoriaPosizione;
       g.lineStyle(2, COLORI.pacman, 0.6 * alfa);
       for (let k = 0; k < 10; k++) {
         const a0 = (k / 10) * Math.PI * 2 + t;
@@ -248,13 +285,17 @@ export class Gioco extends Phaser.Scene {
     } else {
       this.testoDubbio.setVisible(false);
     }
+    if (p.frutto) {
+      const c = pixel(p.frutto.i % lab.larghezza, Math.floor(p.frutto.i / lab.larghezza));
+      disegnaFrutto(g, c.x, c.y, p.frutto.tipo, t, p.frutto.resta / REGOLE.durataFrutto);
+    }
 
     // Nebbia: sfuma casella per casella verso il buio.
     const gn = this.gNebbia;
     gn.clear();
     const velocita = Math.min(1, dt * 7);
     for (let i = 0; i < this.nebbia.length; i++) {
-      const meta = p.visibili[i] || p.fase === 'fine' ? 0 : 0.78;
+      const meta = p.visibili[i] || p.fase === 'fine' ? 0 : 0.6;
       this.nebbia[i] += (meta - this.nebbia[i]) * velocita;
       if (this.nebbia[i] < 0.01) continue;
       const c = pixel(i % lab.larghezza, Math.floor(i / lab.larghezza));
@@ -325,7 +366,7 @@ export class Gioco extends Phaser.Scene {
     this.testoPuntini = testo(this, LARGHEZZA - 90, Y_HUD + 46, '', 8, COLORI.testo).setDepth(prof);
 
     const def = FANTASMI[this.scelte.fantasma];
-    this.testoPotere = testo(this, 112, Y_BARRA - 12, def.potere.toUpperCase(), 12, def.colore).setOrigin(0, 0.5).setDepth(prof);
+    this.testoPotere = testo(this, 112, Y_BARRA - 12, potereDi(this.scelte.fantasma, this.partita.nebbia).nome.toUpperCase(), 12, def.colore).setOrigin(0, 0.5).setDepth(prof);
     this.testoStato = testo(this, 112, Y_BARRA + 12, '', 8, COLORI.testoTenue).setOrigin(0, 0.5).setDepth(prof);
     const zona = this.add.zone(56, Y_BARRA, 84, 84).setInteractive({ useHandCursor: true }).setDepth(prof);
     zona.on('pointerdown', () => { this.azione = true; });
@@ -345,6 +386,8 @@ export class Gioco extends Phaser.Scene {
       this.tweens.add({ targets: guida, alpha: 0.2, duration: 1400, yoyo: true, repeat: -1 });
     }
     this.testoTu = testo(this, 0, 0, 'TU', 8, 0xffffff).setDepth(12);
+    this.avviso = testo(this, LARGHEZZA / 2, ALTEZZA_HUD + 12, '', 8, COLORI.testo).setDepth(20).setAlpha(0);
+    this.avviso.setShadow(0, 0, '#000', 6, true, true);
     this.testoDubbio = testo(this, 0, 0, '?', 12, COLORI.pacman).setDepth(3).setVisible(false);
   }
 
@@ -393,14 +436,26 @@ export class Gioco extends Phaser.Scene {
       g.slice(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2, false);
       g.fillPath();
     }
+    // Suggerimento: il gioco segnala quando è il momento giusto per il potere.
+    const consiglio = pronto && p.fase === 'gioco' && f.ricarica <= 0 && vuoleUsarePotere(p, f);
+    if (consiglio) {
+      const k = (this.t * 1.5) % 1;
+      g.lineStyle(3 * (1 - k) + 1, def.colore, 1 - k);
+      g.strokeCircle(cx, cy, r + 6 + k * 22);
+    }
     disegnaFantasma(g, cx, cy + 2, { colore: pronto ? 0xffffff : def.colore, dir: 2, t: this.t, scala: 0.9, alfa: pronto ? 0.95 : 0.5 });
+    if (pronto && !this.eraPronto && p.fase === 'gioco') suoni.pronto();
+    this.eraPronto = pronto;
     const tocco = this.sys.game.device.input.touch;
+    const comando = tocco ? 'TOCCA IL CERCHIO' : 'PREMI SPAZIO';
     this.testoStato.setText(
       f.stato === 'mangiato' ? `TORNI TRA ${Math.ceil(f.timer)}s`
         : f.attivo > 0 ? 'ATTIVO!'
         : f.ricarica > 0 ? `PRONTO TRA ${Math.ceil(f.ricarica)}s`
-        : tocco ? 'TOCCA IL CERCHIO' : 'PREMI SPAZIO',
+        : consiglio ? `USALO ADESSO! ${comando}`
+        : `PRONTO! ${comando}`,
     );
+    this.testoStato.setColor(pronto ? (consiglio && Math.floor(this.t * 4) % 2 === 0 ? '#ffffff' : `#${def.colore.toString(16).padStart(6, '0')}`) : '#8a93c9');
     this.testoPotere.setAlpha(pronto ? 1 : 0.6);
 
     // Energia dei poteri: 4 tacche, si perdono con le superpillole, si recuperano catturando.

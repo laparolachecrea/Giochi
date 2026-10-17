@@ -82,6 +82,34 @@ durata più breve del 10% per ogni livello perso. Ogni cattura restituisce un li
 Il recupero con le catture evita il circolo vizioso in cui chi sta perdendo si indebolisce
 e perde ancora più facilmente: la partita resta sempre recuperabile.
 
+**Senza nebbia** Pac-Man è sempre visibile, quindi Fiuto e Radar non servirebbero.
+In quella modalità Pinky e Clyde hanno poteri diversi:
+
+| Fantasma | Potere senza nebbia | Effetto | Ricarica |
+|---|---|---|---|
+| Pinky | **Richiamo** | I compagni puntano dritti su Pac-Man per 3 s | 14 s |
+| Clyde | **Onda** | Pac-Man rallenta del 30% per 2 s | 16 s |
+
+**Come si usano**: li attiva il giocatore (cerchio in basso a sinistra o barra spaziatrice).
+Dopo la prima prova l'interfaccia li spiega mentre si gioca: istruzione all'inizio, suono e
+scritta "PRONTO!" quando sono carichi, "USALO ADESSO!" con un anello pulsante quando la
+situazione è adatta, avviso in alto quando un compagno usa il suo.
+
+## 6 ter. Frutta
+
+Ogni 25 secondi (la prima dopo 20) compare un frutto, lontano da Pac-Man, per 12 secondi.
+Pac-Man ci va: se lo mangia, i fantasmi subiscono un malus. Se un fantasma lo tocca prima,
+lo difende; se è il giocatore, il suo potere si ricarica subito.
+
+| Frutto | Malus se lo mangia Pac-Man |
+|---|---|
+| Ciliegia | Fantasmi più lenti del 20% per 4 s |
+| Fragola | Ricarica dei poteri della squadra +5 s |
+| Arancia | Pac-Man più veloce del 15% per 4 s |
+
+Perché funziona: il frutto è un'esca. Il giocatore sa dove Pac-Man vorrà andare e può
+scegliere tra difendere il frutto e tendere un agguato lì vicino.
+
 ## 6 bis. I compagni controllati dal computer
 
 Nella versione per un giocatore il protagonista sei tu. I tre compagni sono **battitori**,
@@ -145,12 +173,14 @@ da codice. ❓ Musica sì/no.
 | Tema | Decisione |
 |---|---|
 | Vite e durata | 3 vite, 3 minuti |
-| Nebbia di guerra | Sì, già dalla 0.1 |
+| Nebbia di guerra | Facoltativa dal menu; predefinita **senza** nebbia (dopo la prima prova) |
 | Poteri dei fantasmi | Sì, quelli proposti, già dalla 0.1 |
 | Comandi su telefono | Scorrimento del dito |
 | Musica | Sì (originale, generata da codice) |
 | Priorità | Prima la giocabilità per un giocatore; multigiocatore dopo |
 | Dispositivi | Web app per telefono e PC; si punta a dispositivi recenti, senza rinunce grafiche |
+| Ritmo | Rallentato di circa un quarto dopo la prima prova (fantasmi: 3,8 caselle/s) |
+| Frutta | Sì (proposta del 17 ottobre): malus ai fantasmi se la mangia Pac-Man |
 
 ## 12. Bilanciamento: cosa dicono i dati
 
@@ -180,6 +210,15 @@ anche la sua quota di catture: in una squadra di quattro, la quota "neutra" sare
 | Facile | 5,0 | 93% | 83 s | 41% |
 | Normale | 5,3 | 60% | 100 s | 54% |
 | Difficile | 5,4 (vede tutto, non sbaglia) | 44% | 114 s | 49% |
+
+Terza taratura (ritmo rallentato, frutta, nebbia facoltativa). Senza nebbia Pac-Man è
+più veloce del 6% per compensare il fatto che la squadra lo vede sempre.
+
+| Difficoltà | Senza nebbia: la squadra vince | Con nebbia: la squadra vince | Durata media |
+|---|---|---|---|
+| Facile | 96% | 95% | circa 85 s |
+| Normale | 72% | 62% | 110–120 s |
+| Difficile | 63% | 53% | 120–135 s |
 
 Limite di questi numeri: il giocatore virtuale ha riflessi perfetti e nessuna strategia.
 Sono un punto di partenza da correggere con le prove reali.

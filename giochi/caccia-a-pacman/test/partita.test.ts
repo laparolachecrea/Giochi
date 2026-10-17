@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Partita } from '../src/logica/partita';
+import { potereDi } from '../src/logica/costanti';
 import { DESTRA, SINISTRA } from '@condivisi/comandi/direzionale';
 
 const passo = 1 / 60;
@@ -65,6 +66,33 @@ describe('partita', () => {
     }
     expect(p.energia).toBeGreaterThanOrEqual(0);
     expect(p.energia).toBeLessThanOrEqual(4);
+  });
+
+  it('senza nebbia Pac-Man è sempre visibile e Pinky e Clyde cambiano potere', () => {
+    const p = new Partita({ difficolta: 'normale', umano: 0, nebbia: false, seme: 7 });
+    for (let t = 0; t < 10; t += passo) {
+      p.aggiorna(passo);
+      if (p.fase === 'gioco') expect(p.pacVisibile).toBe(true);
+    }
+    expect(potereDi(1, false).nome).toBe('Richiamo');
+    expect(potereDi(3, false).nome).toBe('Onda');
+    expect(potereDi(3, true).nome).toBe('Radar');
+  });
+
+  it('la frutta compare lontano da Pac-Man e poi qualcuno la prende o sparisce', () => {
+    const p = new Partita({ difficolta: 'normale', umano: 0, autopilota: true, seme: 8 });
+    let apparsa = false;
+    for (let t = 0; t < 60 && p.fase !== 'fine'; t += passo) {
+      p.aggiorna(passo);
+      for (const e of p.eventi) {
+        if (e.tipo === 'fruttoAppare') {
+          apparsa = true;
+          const pc = p.casellaDi(p.pacman);
+          expect(Math.abs(pc.x - e.x) + Math.abs(pc.y - e.y)).toBeGreaterThanOrEqual(5);
+        }
+      }
+    }
+    expect(apparsa).toBe(true);
   });
 
   it.each(['facile', 'normale', 'difficile'] as const)('una partita intera (%s) arriva sempre a una conclusione', (difficolta) => {
