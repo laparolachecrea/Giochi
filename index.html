@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#04050d" />
+  <title>Sala Giochi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --sfondo: #04050d; --pannello: #0b0f2e; --linea: #6f9bff; --alone: #1e3cff;
+      --giallo: #ffe14d; --testo: #e8ecff; --tenue: #8a93c9;
+      --titolo: "Press Start 2P", ui-monospace, monospace;
+      --corpo: "Space Mono", ui-monospace, monospace;
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; background: radial-gradient(ellipse at 50% 30%, #12164a 0%, var(--sfondo) 65%) fixed, var(--sfondo);
+      color: var(--testo); font-family: var(--corpo);
+      padding: max(32px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 48px max(16px, env(safe-area-inset-left));
+      display: flex; flex-direction: column; align-items: center; gap: 32px;
+    }
+    h1 { font-family: var(--titolo); font-size: clamp(22px, 7vw, 40px); margin: 24px 0 0; color: var(--giallo);
+      text-shadow: 0 0 12px rgba(255, 225, 77, .6), 0 0 32px rgba(255, 225, 77, .3); text-align: center; text-wrap: balance; }
+    p.sotto { margin: 0; color: var(--tenue); text-align: center; }
+    .giochi { display: grid; gap: 20px; width: min(560px, 100%); }
+    a.gioco {
+      display: grid; grid-template-columns: 72px 1fr; gap: 16px; align-items: center; padding: 20px;
+      background: var(--pannello); border: 2px solid var(--linea); border-radius: 14px; color: inherit; text-decoration: none;
+      box-shadow: 0 0 0 6px rgba(30, 60, 255, .12), 0 0 24px rgba(30, 60, 255, .25); transition: transform .15s, box-shadow .15s;
+    }
+    a.gioco:hover, a.gioco:focus-visible { transform: translateY(-2px); box-shadow: 0 0 0 6px rgba(30, 60, 255, .25), 0 0 36px rgba(30, 60, 255, .45); outline: none; }
+    a.gioco h2 { font-family: var(--titolo); font-size: 14px; line-height: 1.6; margin: 0 0 8px; color: var(--testo); }
+    a.gioco p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--tenue); }
+    .stato { display: inline-block; margin-top: 10px; font-family: var(--titolo); font-size: 8px; letter-spacing: .08em; color: #7dff9a; }
+    svg { width: 72px; height: 72px; }
+    @media (prefers-reduced-motion: reduce) { a.gioco { transition: none; } }
+  </style>
+</head>
+<body>
+  <h1>SALA GIOCHI</h1>
+  <p class="sotto">Giochi progettati insieme, programmati da Claude.</p>
+  <main class="giochi">
+    <a class="gioco" href="caccia-a-pacman/">
+      <svg viewBox="0 0 72 72" aria-hidden="true">
+        <circle cx="36" cy="36" r="34" fill="#ff3b5c" opacity=".15" />
+        <path d="M14 38a22 22 0 0 1 44 0v20l-5.5-5-5.5 5-5.5-5-5.5 5-5.5-5-5.5 5-5.5-5-5.5 5z" fill="#ff3b5c" />
+        <ellipse cx="27" cy="36" rx="6" ry="7.5" fill="#fff" /><ellipse cx="45" cy="36" rx="6" ry="7.5" fill="#fff" />
+        <circle cx="29" cy="37" r="3" fill="#1b2a9e" /><circle cx="47" cy="37" r="3" fill="#1b2a9e" />
+      </svg>
+      <div>
+        <h2>CACCIA A PAC-MAN</h2>
+        <p>Pac-Man rovesciato: sei un fantasma e, con tre compagni, devi catturarlo nella nebbia.</p>
+        <span class="stato">VERSIONE 0.1 · TELEFONO E PC</span>
+      </div>
+    </a>
+  </main>
+</body>
+</html>
