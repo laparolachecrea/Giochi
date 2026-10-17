@@ -1,0 +1,51 @@
+# Compila tutti i giochi, esegue i collaudi e pubblica il risultato sul ramo gh-pages,
+# da cui GitHub Pages serve il sito: https://<utente>.github.io/<repository>/
+name: Pubblica i giochi
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pubblicazione
+  cancel-in-progress: true
+
+jobs:
+  pubblica:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Collaudi
+        run: npm test
+
+      - name: Compila ogni gioco
+        run: |
+          mkdir -p sito
+          for cartella in giochi/*/; do
+            nome=$(basename "$cartella")
+            (cd "$cartella" && npm run build)
+            cp -r "$cartella/dist" "sito/$nome"
+          done
+          cp pubblicazione/index.html sito/index.html
+          touch sito/.nojekyll
+
+      - name: Pubblica sul ramo gh-pages
+        working-directory: sito
+        run: |
+          git init -q -b gh-pages
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "Pubblicazione da ${GITHUB_SHA::7}"
+          git push -f -q "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages

@@ -10,12 +10,17 @@ Giochi/
 ├── README.md              ← questo file
 ├── docs/
 │   └── ECOSISTEMA.md      ← strumenti scelti e perché
+├── pubblicazione/         ← pagina iniziale del sito
 ├── condivisi/             ← codice comune (menu, audio, comandi touch, rete…)
 └── giochi/
     └── caccia-a-pacman/   ← Pac-Man rovesciato: i giocatori sono i fantasmi
         ├── PROGETTO.md    ← documento di progetto
         └── README.md      ← come si gioca e come si sviluppa
 ```
+
+## Dove si gioca
+
+Sito pubblico (aggiornato automaticamente a ogni modifica): https://laparolachecrea.github.io/Giochi/
 
 ## Metodo di lavoro
 
